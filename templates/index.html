@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FurniFind — AI-Powered Furniture Recommendations</title>
+  <meta name="description"
+    content="AI-powered furniture recommendations using Hybrid RS, TF-IDF, KNN & Association Rules.">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛋️</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+
+  <!-- ─── Navbar ──────────────────────────────────── -->
+  <nav class="navbar">
+    <div class="navbar-brand">Furni<span>Find</span></div>
+    <ul class="navbar-links">
+      <li><a href="#" id="nav-fav" class="nav-fav-link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            style="vertical-align:middle;margin-right:4px;">
+            <path
+              d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+          Favourites <span id="fav-count" class="fav-count">0</span>
+        </a></li>
+      <li><a href="#">Recommendation System</a></li>
+      <li><a href="#">RS Project</a></li>
+    </ul>
+  </nav>
+
+  <!-- ─── Favourites Panel (Slide-down) ─────────── -->
+  <div id="fav-panel" class="fav-panel">
+    <div class="fav-panel-header">
+      <h3>Your Favourite Pieces</h3>
+      <button id="close-fav" class="close-fav">&times;</button>
+    </div>
+    <div id="fav-items-list" class="fav-items-list">
+      <!-- Favourites populated by JS -->
+      <div class="empty-fav">No pieces saved yet.</div>
+    </div>
+  </div>
+
+  <!-- ─── Hero ────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-text">
+      <h1>Find furniture that<br><em>matches your taste</em></h1>
+      <p>AI-powered recommendations using Hybrid RS, KNN, TF-IDF, and Association Rules</p>
+    </div>
+
+    <!-- Search Card -->
+    <div class="hero-search">
+      <form id="search-form" autocomplete="off">
+        <div class="search-grid">
+
+          <!-- Search with autocomplete -->
+          <div class="field-group" style="grid-column:1/-1">
+            <label for="search-input">Search Furniture</label>
+            <div class="autocomplete-wrapper">
+              <input id="search-input" type="text" placeholder="e.g. bed, sofa, chair…" />
+              <div id="autocomplete-list"></div>
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div class="field-group">
+            <label for="filter-category">Category</label>
+            <select id="filter-category">
+              <option value="">All Categories</option>
+              {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Rating -->
+          <div class="field-group">
+            <label for="filter-rating">Min Rating</label>
+            <select id="filter-rating">
+              <option value="0">Any Rating</option>
+              <option value="3">3+ Stars</option>
+              <option value="4">4+ Stars</option>
+              <option value="4.5">4.5+ Stars</option>
+            </select>
+          </div>
+
+          <!-- Price -->
+          <div class="field-group">
+            <label>Price Range ($)</label>
+            <div class="price-range-row">
+              <input id="filter-min-price" type="number" placeholder="0" min="0" />
+              <span style="color:var(--text-muted)">–</span>
+              <input id="filter-max-price" type="number" placeholder="9999" min="0" />
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="field-group" style="justify-content:flex-end">
+            <button type="submit" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              Find Furniture
+            </button>
+          </div>
+
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ─── Main ─────────────────────────────────────── -->
+  <main class="main">
+    <div class="section-header">
+      <h2 id="section-title">Top Picks for You</h2>
+      <span id="count-badge" class="count-badge">{{ initial_results.total }} items</span>
+      <div class="method-badges">
+        <span class="method-badge">Hybrid RS</span>
+        <span class="method-badge">TF-IDF</span>
+        <span class="method-badge">KNN</span>
+      </div>
+    </div>
+
+    <div id="products-grid"></div>
+    <div id="pagination"></div>
+  </main>
+
+  <!-- ─── Footer ───────────────────────────────────── -->
+  <footer>
+    <p>FurniFind &copy; 2025 &nbsp;|&nbsp; Built with <span>Flask · scikit-learn · Python</span> &nbsp;·&nbsp; RS
+      Academic Project</p>
+  </footer>
+
+  <!-- ─── Product Modal ─────────────────────────────── -->
+  <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <button id="modal-close" class="modal-close" aria-label="Close">&times;</button>
+
+      <div class="modal-layout">
+        <!-- Left: image -->
+        <div class="modal-img-wrap">
+          <img id="modal-img" src="" alt="" />
+        </div>
+
+        <!-- Right: details -->
+        <div class="modal-details">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span id="modal-category" class="modal-cat-badge"></span>
+            <button id="btn-favourite" class="btn-fav" title="Add to Favourites" aria-pressed="false">
+              <svg id="fav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path
+                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          </div>
+
+          <h2 id="modal-title" class="modal-title"></h2>
+
+          <div id="modal-stars" class="modal-stars"></div>
+
+          <p id="modal-desc" class="modal-desc"></p>
+
+          <div id="modal-price" class="modal-price"></div>
+
+          <a id="modal-link" href="#" target="_blank" rel="noopener" class="btn-amazon">
+            View on Amazon ↗
+          </a>
+
+          <!-- FBT -->
+          <div id="modal-fbt" class="modal-fbt-wrap" style="display:none">
+            <div class="fbt-header">Frequently Bought Together</div>
+            <div id="modal-fbt-list" class="modal-fbt-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast ─────────────────────────────────────── -->
+  <div id="toast"></div>
+
+  <!-- Initial data from server -->
+  <script id="initial-data" type="application/json">{{ initial_results | tojson }}</script>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
